@@ -33,6 +33,12 @@ import {
   clearAllReportSnapshotsFromIDB,
   SavedReportSnapshot
 } from '../utils/indexedDBStorage';
+import { 
+  subscribeToReports, 
+  saveReportToFirebase, 
+  deleteReportFromFirebase, 
+  FirebaseReportRecord 
+} from '../lib/firebase';
 
 interface ReportCenterProps {
   dataset: Dataset | null;
@@ -135,6 +141,17 @@ This report summarizes automated insights, data hygiene audits, and statistical 
 3. **Deploy Predictive Horizon**: Leverage exponential smoothing forecasts for quarter-ahead planning.
 ` : 'Select a dataset to generate executive briefs');
 
+  // Real-time Firebase Reports Subscription
+  const [firebaseReports, setFirebaseReports] = useState<FirebaseReportRecord[]>([]);
+
+  useEffect(() => {
+    if (!dataset) return;
+    const unsub = subscribeToReports(dataset.id, (reports) => {
+      setFirebaseReports(reports);
+    });
+    return () => unsub();
+  }, [dataset?.id]);
+
   // Load all saved snapshots from IndexedDB on component mount
   const refreshSnapshots = useCallback(async () => {
     const snapshots = await getAllReportSnapshotsFromIDB();
@@ -145,7 +162,7 @@ This report summarizes automated insights, data hygiene audits, and statistical 
     refreshSnapshots();
   }, [refreshSnapshots]);
 
-  // Execute Auto-Save to IndexedDB whenever state/props update
+  // Execute Auto-Save to IndexedDB and Firebase Firestore whenever state/props update
   const executeAutoSave = useCallback(async () => {
     if (!dataset) return;
 
@@ -168,6 +185,16 @@ This report summarizes automated insights, data hygiene audits, and statistical 
     };
 
     await saveReportStateToIDB(snapshot);
+
+    if (latestResult) {
+      saveReportToFirebase(
+        dataset.id,
+        `Executive Brief: ${dataset.name}`,
+        latestResult.summary || 'Automated data analysis report',
+        latestResult
+      ).catch((e) => console.error('Firebase report save error:', e));
+    }
+
     setLastSavedAt(formattedTime);
     setIsAutoSaving(false);
     refreshSnapshots();

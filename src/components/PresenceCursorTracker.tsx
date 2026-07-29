@@ -15,6 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { UserPresence, CursorPosition, TabType } from '../types';
+import { subscribeToPresence, updateUserPresence } from '../lib/firebase';
 
 interface PresenceCursorTrackerProps {
   activeTab: TabType;
@@ -179,9 +180,44 @@ export const PresenceCursorTracker: React.FC<PresenceCursorTrackerProps> = ({
           })
         );
       }
+
+      // Sync cursor with Firebase Firestore presence
+      if (myUserId) {
+        updateUserPresence({
+          id: myUserId,
+          name: localUser.name,
+          role: localUser.role,
+          color: localUser.color,
+          avatarInitials: localUser.avatarInitials,
+          activeTab: activeTab,
+          cursor: cursorData,
+          status: 'active',
+          lastSeen: Date.now(),
+        }).catch(() => {});
+      }
     },
-    [activeTab]
+    [activeTab, myUserId, localUser]
   );
+
+  // Subscribe to Firebase real-time presence
+  useEffect(() => {
+    const unsub = subscribeToPresence((fbUsers) => {
+      if (fbUsers && fbUsers.length > 0) {
+        fbUsers.forEach((user) => {
+          if (user.id !== myUserId && user.cursor) {
+            setRemoteCursors((prev) => ({
+              ...prev,
+              [user.id]: {
+                user,
+                cursor: user.cursor!,
+              },
+            }));
+          }
+        });
+      }
+    });
+    return () => unsub();
+  }, [myUserId]);
 
   useEffect(() => {
     window.addEventListener('pointermove', handlePointerMove);

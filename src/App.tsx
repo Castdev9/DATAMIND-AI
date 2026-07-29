@@ -18,6 +18,19 @@ import { PresenceCursorTracker } from './components/PresenceCursorTracker';
 import { INITIAL_DATASETS } from './data/sampleDatasets';
 import { Dataset, ChatMessage, TabType, AnalysisResult, AgentStep, DashboardWidget } from './types';
 import { getLatestReportStateFromIDB } from './utils/indexedDBStorage';
+import { 
+  initFirebaseAuth, 
+  signInWithGoogle, 
+  signOutUser, 
+  subscribeToDatasets, 
+  saveDatasetToFirebase, 
+  subscribeToChatMessages, 
+  saveChatMessageToFirebase, 
+  subscribeToDashboardWidgets, 
+  saveDashboardWidgetsToFirebase,
+  saveReportToFirebase 
+} from './lib/firebase';
+import { User as FirebaseUser } from 'firebase/auth';
 
 export default function App() {
   const [datasets, setDatasets] = useState<Dataset[]>(INITIAL_DATASETS);
@@ -28,6 +41,7 @@ export default function App() {
   const [isConnectorOpen, setIsConnectorOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [latestAnalysis, setLatestAnalysis] = useState<AnalysisResult | null>(null);
+  const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
 
   // Pinned Dashboard Widgets State
   const [pinnedWidgets, setPinnedWidgets] = useState<DashboardWidget[]>([
@@ -59,6 +73,64 @@ export default function App() {
       width: 'third',
     },
   ]);
+
+  // 1. Initialize Firebase Auth
+  useEffect(() => {
+    initFirebaseAuth().then((user) => {
+      if (user) {
+        setAuthUser(user);
+      }
+    });
+  }, []);
+
+  // 2. Real-time Firebase Datasets Subscription
+  useEffect(() => {
+    const unsub = subscribeToDatasets((fbDatasets) => {
+      if (fbDatasets && fbDatasets.length > 0) {
+        setDatasets(fbDatasets);
+        setCurrentDataset((prev) => {
+          if (!prev) return fbDatasets[0];
+          const found = fbDatasets.find((d) => d.id === prev.id);
+          return found || fbDatasets[0];
+        });
+      } else {
+        // Seed initial sample datasets into Firebase Firestore
+        INITIAL_DATASETS.forEach((ds) => {
+          saveDatasetToFirebase(ds);
+        });
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // 3. Real-time Firebase Chat Messages Subscription
+  useEffect(() => {
+    if (!currentDataset) return;
+    const unsub = subscribeToChatMessages(currentDataset.id, (fbMsgs) => {
+      if (fbMsgs && fbMsgs.length > 0) {
+        setMessages(fbMsgs);
+        // Extract latest resultData if available
+        const lastWithData = [...fbMsgs].reverse().find((m) => m.resultData);
+        if (lastWithData?.resultData) {
+          setLatestAnalysis(lastWithData.resultData);
+        }
+      } else {
+        setMessages([]);
+      }
+    });
+    return () => unsub();
+  }, [currentDataset?.id]);
+
+  // 4. Real-time Dashboard Widgets Subscription
+  useEffect(() => {
+    const userId = authUser?.uid || 'shared_dashboard';
+    const unsub = subscribeToDashboardWidgets(userId, (widgets) => {
+      if (widgets && widgets.length > 0) {
+        setPinnedWidgets(widgets);
+      }
+    });
+    return () => unsub();
+  }, [authUser?.uid]);
 
   // Global Keyboard Shortcuts Manager
   useEffect(() => {
@@ -159,6 +231,7 @@ export default function App() {
   const handleDatasetCreated = (newDs: Dataset) => {
     setDatasets((prev) => [newDs, ...prev]);
     setCurrentDataset(newDs);
+    saveDatasetToFirebase(newDs);
   };
 
   const handleSendMessage = async (text: string) => {
@@ -173,6 +246,7 @@ export default function App() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    saveChatMessageToFirebase(currentDataset.id, userMsg);
     setIsAnalyzing(true);
 
     try {
@@ -218,6 +292,7 @@ export default function App() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+      saveChatMessageToFirebase(currentDataset.id, assistantMsg);
     } catch (err: any) {
       console.error('Error during analysis:', err);
 
@@ -249,9 +324,16 @@ export default function App() {
       };
 
       setMessages((prev) => [...prev, fallbackMsg]);
+      saveChatMessageToFirebase(currentDataset.id, fallbackMsg);
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleUpdateWidgets = (newWidgets: DashboardWidget[]) => {
+    setPinnedWidgets(newWidgets);
+    const userId = authUser?.uid || 'shared_dashboard';
+    saveDashboardWidgetsToFirebase(userId, newWidgets);
   };
 
   return (
@@ -267,6 +349,9 @@ export default function App() {
         onOpenConnectorModal={() => setIsConnectorOpen(true)}
         onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
         isAnalyzing={isAnalyzing}
+        authUser={authUser}
+        onSignInGoogle={() => signInWithGoogle().then(setAuthUser)}
+        onSignOut={() => signOutUser().then(() => setAuthUser(null))}
       />
 
       {/* Main Content Area based on Tab */}
@@ -295,7 +380,7 @@ export default function App() {
           <VisualizationStudio 
             dataset={currentDataset} 
             onPinChart={(widget) => {
-              setPinnedWidgets((prev) => [widget, ...prev]);
+              handleUpdateWidgets([widget, ...pinnedWidgets]);
             }}
           />
         )}
@@ -304,7 +389,7 @@ export default function App() {
           <DashboardBuilder
             dataset={currentDataset}
             pinnedWidgets={pinnedWidgets}
-            onUpdateWidgets={setPinnedWidgets}
+            onUpdateWidgets={handleUpdateWidgets}
             onNavigateToStudio={() => setActiveTab('visualize')}
           />
         )}

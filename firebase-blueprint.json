@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "User account information and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string font" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "lastLogin": { "type": "number" }
+      },
+      "required": ["uid"]
+    },
+    "datasets": {
+      "title": "Dataset",
+      "description": "Uploaded or connected tabular dataset metadata and samples",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "rowCount": { "type": "number" },
+        "columnCount": { "type": "number" },
+        "columns": { "type": "array" },
+        "sampleData": { "type": "array" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name", "columns"]
+    },
+    "chat_messages": {
+      "title": "Chat Message",
+      "description": "Real-time AI Copilot chat messages and analysis steps",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "datasetId": { "type": "string" },
+        "sender": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "agentSteps": { "type": "array" },
+        "analysisResult": { "type": "object" },
+        "createdBy": { "type": "string font" }
+      },
+      "required": ["id", "datasetId", "sender", "text", "timestamp"]
+    },
+    "reports": {
+      "title": "Report Snapshot",
+      "description": "Saved analysis reports and executive summaries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "datasetId": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "analysisResult": { "type": "object" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["id", "datasetId", "title", "timestamp"]
+    },
+    "presence": {
+      "title": "Real-time User Presence",
+      "description": "Live cursor position and active tab status of active collaborators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userColor": { "type": "string" },
+        "activeTab": { "type": "string" },
+        "datasetId": { "type": "string" },
+        "xRatio": { "type": "number" },
+        "yRatio": { "type": "number font" },
+        "lastSeen": { "type": "number" }
+      },
+      "required": ["id", "userId", "lastSeen"]
+    },
+    "dashboards": {
+      "title": "User Dashboard Layout",
+      "description": "Pinned KPI and chart widgets configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "widgets": { "type": "array" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "widgets"]
+    }
+  }
+}

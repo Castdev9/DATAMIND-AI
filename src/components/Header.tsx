@@ -12,9 +12,14 @@ import {
   CheckCircle2,
   FileCode2,
   Keyboard,
-  LayoutGrid
+  LayoutGrid,
+  Flame,
+  User,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import { Dataset, TabType } from '../types';
+import { User as FirebaseUser } from 'firebase/auth';
 
 interface HeaderProps {
   datasets: Dataset[];
@@ -25,6 +30,9 @@ interface HeaderProps {
   onOpenConnectorModal: () => void;
   onOpenShortcutsModal?: () => void;
   isAnalyzing: boolean;
+  authUser?: FirebaseUser | null;
+  onSignInGoogle?: () => void;
+  onSignOut?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,6 +44,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenConnectorModal,
   onOpenShortcutsModal,
   isAnalyzing,
+  authUser,
+  onSignInGoogle,
+  onSignOut,
 }) => {
   return (
     <header id="app-header" className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-sm">
@@ -135,6 +146,49 @@ export const Header: React.FC<HeaderProps> = ({
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Connect Data</span>
             </button>
+
+            {/* Firebase Live Database & User Auth Badge */}
+            <div className="flex items-center space-x-2 pl-1 border-l border-slate-800">
+              <div className="hidden lg:flex items-center space-x-1.5 bg-amber-950/40 border border-amber-800/60 text-amber-300 text-[10px] font-mono px-2 py-1 rounded-lg">
+                <Flame className="w-3 h-3 text-amber-400 animate-pulse" />
+                <span>Firestore Live</span>
+              </div>
+
+              {authUser ? (
+                <div className="flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+                  <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white overflow-hidden">
+                    {authUser.photoURL ? (
+                      <img src={authUser.photoURL} alt={authUser.displayName || 'User'} className="w-full h-full object-cover" />
+                    ) : (
+                      authUser.displayName?.[0] || authUser.email?.[0] || 'U'
+                    )}
+                  </div>
+                  <span className="hidden xl:inline text-[11px] font-medium max-w-[100px] truncate">
+                    {authUser.displayName || authUser.email || (authUser.isAnonymous ? 'Analyst' : 'User')}
+                  </span>
+                  {onSignOut && (
+                    <button
+                      onClick={onSignOut}
+                      className="text-slate-400 hover:text-rose-400 p-0.5 rounded transition-colors ml-1"
+                      title="Sign Out"
+                    >
+                      <LogOut className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                onSignInGoogle && (
+                  <button
+                    onClick={onSignInGoogle}
+                    className="flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-700 transition-all"
+                    title="Sign in with Google"
+                  >
+                    <User className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="hidden sm:inline">Sign In</span>
+                  </button>
+                )
+              )}
+            </div>
           </div>
 
         </div>
